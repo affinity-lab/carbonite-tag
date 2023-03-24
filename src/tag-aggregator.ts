@@ -1,13 +1,13 @@
 import {Column, In, Like} from "typeorm"
 
 import {Atom} from "@affinity-lab/carbonite";
-import TagDescriptor from "./tag-descriptor";
+import {Descriptor} from "./_module";
 
 export default class TagAggregator extends Atom {
 	@Column({nullable: false}) tag: string;
 	@Column({nullable: true}) group: string;
-	static descriptors: Array<TagDescriptor> = [];
-	static addDescriptor(descriptor: TagDescriptor) {this.descriptors.push(descriptor);}
+	static descriptors: Array<Descriptor> = [];
+	static addDescriptor(descriptor: Descriptor) {this.descriptors.push(descriptor);}
 
 	static async updateTags(group: string | null) {
 		let currentTags = (await this.findTags(group)).map(tag => tag.tag);
