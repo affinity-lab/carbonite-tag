@@ -1,13 +1,17 @@
-import {EntitySubscriberInterface, InsertEvent, RemoveEvent, UpdateEvent} from "typeorm";
+import type {EntitySubscriberInterface, InsertEvent, RemoveEvent, UpdateEvent} from "typeorm";
 import {Atom, ModuleManager} from "@affinity-lab/carbonite";
-import {DataSource} from "typeorm";
-import TagAggregator from "./tag-aggregator";
+import type {DataSource} from "typeorm";
+import type TagAggregator from "./tag-aggregator";
+import type {TransactionCommitEvent} from "typeorm/subscriber/event/TransactionCommitEvent";
 
 let moduleManager = new (class extends ModuleManager {
 	async initialize(dataSource: DataSource) {
 		let atoms = [...(new Set(this.descriptors.map((tagDescriptor: Descriptor) => tagDescriptor.atom)))]
 		atoms.forEach(atom => {
 			let descriptors = this.descriptors.filter(descriptor => descriptor.atom === atom);
+			console.log("ADD SUBSCIBER")
+			console.log(atom)
+			console.log(descriptors)
 			dataSource.subscribers.push(new Subscriber(atom, descriptors))
 		});
 	}
@@ -42,6 +46,16 @@ class Subscriber implements EntitySubscriberInterface<Atom> {
 		descriptors.forEach(descriptor => descriptor.aggregator.addDescriptor(descriptor))
 	}
 	public listenTo() {return this.atom}
+
+	private queue:Array<{descriptors: Descriptor[], entity: Atom}> = [];
+
+	public async afterTransactionCommit(event: TransactionCommitEvent){
+		while (this.queue.length>0){
+			let q = this.queue.pop();
+			for (let descriptor of q.descriptors) await descriptor.aggregator.updateTags(descriptor.grouping === null ? null : q.entity[descriptor.grouping]);
+		}
+	}
+
 	public async afterRemove(event: RemoveEvent<Atom>): Promise<void> { await this.update(this.tagProperties, event.entity);}
 	public async afterInsert(event: InsertEvent<Atom>): Promise<void> { await this.update(this.tagProperties, event.entity);}
 	public async afterUpdate(event: UpdateEvent<Atom>) {
@@ -50,7 +64,7 @@ class Subscriber implements EntitySubscriberInterface<Atom> {
 		await this.update(updated, event.entity as Atom)
 	}
 	private async update(updated: Set<string>, entity: Atom) {
-		let descriptors = this.descriptors.filter(descriptor => updated.has(descriptor.property))
-		for (let descriptor of descriptors) await descriptor.aggregator.updateTags(descriptor.grouping === null ? null : entity[descriptor.grouping]);
+		let descriptors = this.descriptors.filter(descriptor => updated.has(descriptor.property));
+		this.queue.push({descriptors, entity})
 	}
 }
