@@ -9,9 +9,6 @@ let moduleManager = new (class extends ModuleManager {
 		let atoms = [...(new Set(this.descriptors.map((tagDescriptor: Descriptor) => tagDescriptor.atom)))]
 		atoms.forEach(atom => {
 			let descriptors = this.descriptors.filter(descriptor => descriptor.atom === atom);
-			console.log("ADD SUBSCIBER")
-			console.log(atom)
-			console.log(descriptors)
 			dataSource.subscribers.push(new Subscriber(atom, descriptors))
 		});
 	}
